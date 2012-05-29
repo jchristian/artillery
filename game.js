@@ -1,14 +1,45 @@
-Velocity = (function() {
-	function Velocity(speed, direction) {
-		this.speed = speed;
+Vector = (function() {
+	function Vector(magnitude, direction) {
+		this.magnitude = magnitude;
 		this.direction = direction;
+		this.x = Math.cos(direction)*magnitude;
+		this.y = Math.sin(direction)*magnitude;
+	}
+	Vector.createFromCoordinates = function(x, y) {
+		return new Vector(Math.sqrt(x*x + y*y), Math.atan2(x, y));
+	};
+
+	return Vector;
+})();
+
+Velocity = (function() {
+	function Velocity(vector) {
+		this.vector = vector;
 	}
 	Velocity.prototype.displacement = function(time) {
-		var distance = this.speed*time;
-		return new Point(Math.cos(this.direction)*distance, Math.sin(this.direction)*distance);
+		var distance = this.vector.magnitude*time;
+		return new Point(Math.cos(this.vector.direction)*distance, Math.sin(this.vector.direction)*distance);
+	};
+	Velocity.prototype.accelerate = function(velocity) {
+		var x = velocity.vector.x + this.vector.x;
+		var y = velocity.vector.y + this.vector.y;
+		return new Velocity(Vector.createFromCoordinates(x, y));
 	};
 
 	return Velocity;
+})();
+
+Acceleration = (function() {
+	function Acceleration(velocity, rateOfChange) {
+		this.velocity = velocity;
+		this.rateOfChange = rateOfChange;
+	}
+	Acceleration.prototype.getVelocityFor = function(time) {
+		var change = this.rateOfChange*time;
+		return new Velocity(Vector.createFromCoordinates(this.velocity.vector.x*change, this.velocity.vector.y*change));
+	};
+
+	return Acceleration;
 })();
 
 Point = (function() {
@@ -111,7 +142,7 @@ Tank = (function() {
 		return endOfBarrel.translate(this.position);
 	};
 	Tank.prototype.fireBullet = function() {
-		this.bulletFired(new Bullet(this.pointOfLaunch(), new Velocity(10, this.gunAngle)));
+		this.bulletFired(new Bullet(this.pointOfLaunch(), new Velocity(new Vector(10, this.gunAngle))));
 	}
 
 	return Tank;
@@ -156,11 +187,14 @@ Renderer = (function() {
 Physics = (function() {
 	function Physics(objects) {
 		this.objects = objects;
-		//this.gravity = new Acelleration(9.8, Math.PI*1.5);
+		this.gravity = new Acceleration(new Velocity(new Vector(.01, Math.PI*1.5)), 9.8);
+		this.time = 1;
 	}
 	Physics.prototype.update = function() {
+		var physics = this;
 		this.objects.forEach(function(object) {
-			object.move(1);
+			object.velocity = object.velocity.accelerate(physics.gravity.getVelocityFor(physics.time));
+			object.move(physics.time);
 		});
 	};
 
