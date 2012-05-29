@@ -1,14 +1,34 @@
-Velocity = (function() {
-	function Velocity(speed, direction) {
-		this.speed = speed;
-		this.direction = direction;
+Vector = (function() {
+	function Vector(x, y) {
+		this.x = x;
+		this.y = y;
+		this.magnitude = this.getMagnitude();
+		this.direction = this.getDirection();
 	}
-	Velocity.prototype.displacement = function(time) {
-		var distance = this.speed*time;
-		return new Point(Math.cos(this.direction)*distance, Math.sin(this.direction)*distance);
+	Vector.prototype.add = function(vector) {
+		return new Vector(this.x+vector.x, this.y+vector.y);
+	};
+	Vector.prototype.scale = function(scale) {
+		var distance = this.magnitude*scale;
+		return new Vector(this.x*scale, this.y*scale);
+	};
+	Vector.fromMagnitudeAnDirection = function(magnitude, direction) {
+		return new Vector(Math.cos(direction)*magnitude, Math.sin(direction)*magnitude);
+	};
+	Vector.prototype.scaleByConstant = function(scale) {
+		return new Vector(this.x*scale, this.y*scale);
+	};
+	Vector.prototype.scaleByVector = function(scale) {
+		return new Vector(this.x*scale.x, this.y*scale.y);
+	};
+	Vector.prototype.getMagnitude = function() {
+		return Math.sqrt(this.x*this.x + this.y*this.y);
+	};
+	Vector.prototype.getDirection = function() {
+		return Math.atan2(this.x, this.y);
 	};
 
-	return Velocity;
+	return Vector;
 })();
 
 Point = (function() {
@@ -37,7 +57,7 @@ Bullet = (function() {
 		context.fill();
 	};
 	Bullet.prototype.move = function(time) {
-		this.location = this.location.translate(this.velocity.displacement(time));
+		this.location = this.location.translate(this.velocity.scale(time));
 	};
 
 	return Bullet;
@@ -46,10 +66,9 @@ Bullet = (function() {
 Tank = (function() {
 	function Tank() {
 		this.position = new Point(0, 0);
-		this.scale = .5;
-		this.gunAngle = .1 * Math.PI;
-		this.barrelPointOfRotation = new Point(62.5, 45);
-		this.barrelLength = 75;
+		this.gunAngle = 0.1 * Math.PI;
+		this.barrelPointOfRotation = new Point(26, 19);
+		this.barrelLength = 25;
 
 		this.bulletFired = function(bullet) { };
 	}
@@ -57,39 +76,36 @@ Tank = (function() {
 		context.save();
 		context.translate(this.position.x, this.position.y);
 
-		context.save();
-		context.scale(this.scale, this.scale);
-
 		context.strokeStyle = "#888";
-		context.lineWidth = 4;
+		context.lineWidth = 2;
 
-		context.strokeRect(37.5, 37.5, 25, 12.5);
-		context.strokeRect(12.5, 25, 75, 12.5);
+		context.strokeRect(15, 15, 10, 5);
+		context.strokeRect(5, 10, 30, 5);
 		
 		context.beginPath();
-		context.lineTo(12.5, 0);
-		context.lineTo(87.5, 0);
+		context.lineTo(5, 0);
+		context.lineTo(35, 0);
 		context.stroke();
 		context.beginPath();
-		context.arc(12.5, 12.5, 12.5, 0, Math.PI*2, false);
+		context.arc(5, 5, 5, 0, Math.PI*2, false);
 		context.stroke();
 		context.beginPath();
-		context.arc(37.5, 12.5, 12.5, 0, Math.PI*2, false);
+		context.arc(15, 5, 5, 0, Math.PI*2, false);
 		context.stroke();
 		context.beginPath();
-		context.arc(62.5, 12.5, 12.5, 0, Math.PI*2, false);
+		context.arc(25, 5, 5, 0, Math.PI*2, false);
 		context.stroke();
 		context.beginPath();
-		context.arc(87.5, 12.5, 12.5, 0, Math.PI*2, false);
+		context.arc(35, 5, 5, 0, Math.PI*2, false);
 		context.stroke();
 
 		context.save();
 		context.translate(this.barrelPointOfRotation.x, this.barrelPointOfRotation.y-2);
 		context.rotate(this.gunAngle);
 		context.save();
-		context.translate(0, 2);
+		context.translate(0, 1);
 		context.restore();
-		context.strokeRect(0, 0, this.barrelLength, 5);
+		context.strokeRect(0, 0, this.barrelLength, 2);
 		context.restore();
 
 		context.restore();
@@ -98,21 +114,21 @@ Tank = (function() {
 	};
 	Tank.prototype.angleGunUp = function() {
 		if(this.gunAngle < Math.PI / 2)
-			this.gunAngle += .005 * Math.PI;
+			this.gunAngle += 0.005 * Math.PI;
 	};
 	Tank.prototype.angleGunDown = function() {
 		if(this.gunAngle >= 0)
-			this.gunAngle -= .005 * Math.PI;
+			this.gunAngle -= 0.005 * Math.PI;
 	};
 	Tank.prototype.pointOfLaunch = function() {
 		var beginingOfBarrel = this.barrelPointOfRotation;
-		var endOfBarrel = beginingOfBarrel.translate(new Point(Math.cos(this.gunAngle) * this.barrelLength, Math.sin(this.gunAngle) * this.barrelLength)).scale(this.scale);
+		var endOfBarrel = beginingOfBarrel.translate(new Point(Math.cos(this.gunAngle) * this.barrelLength, Math.sin(this.gunAngle) * this.barrelLength));
 
 		return endOfBarrel.translate(this.position);
 	};
 	Tank.prototype.fireBullet = function() {
-		this.bulletFired(new Bullet(this.pointOfLaunch(), new Velocity(10, this.gunAngle)));
-	}
+		this.bulletFired(new Bullet(this.pointOfLaunch(), Vector.fromMagnitudeAnDirection(100, this.gunAngle)));
+	};
 
 	return Tank;
 })();
@@ -123,12 +139,12 @@ InputController = (function() {
 		this.functionMapping = {
 			13:function() { tank.fireBullet(); },
 			38:function() { tank.angleGunUp(); },
-			40:function() { tank.angleGunDown(); },
+			40:function() { tank.angleGunDown(); }
 		};
 	}
 	InputController.prototype.handleKeyPress = function(e) {
-		var e = window.event || e
-		var key = e.charCode || e.keyCode
+		var args = window.event || e;
+		var key = args.charCode || args.keyCode;
 
 		if(this.functionMapping[key] !== undefined)
 			this.functionMapping[key]();
@@ -156,11 +172,13 @@ Renderer = (function() {
 Physics = (function() {
 	function Physics(objects) {
 		this.objects = objects;
-		//this.gravity = new Acelleration(9.8, Math.PI*1.5);
+		this.gravity = new Vector(0, -9.8);
 	}
-	Physics.prototype.update = function() {
+	Physics.prototype.update = function(timeElapsed) {
+		var physics = this;
 		this.objects.forEach(function(object) {
-			object.move(1);
+			object.velocity = object.velocity.add(physics.gravity.scaleByConstant(timeElapsed/1000));
+			object.move(timeElapsed/1000);
 		});
 	};
 
@@ -168,6 +186,7 @@ Physics = (function() {
 })();
 
 var load = function(x, y) {
+	var refreshRate = 30;
 	var canvas = document.getElementById('mainCanvas');
 	var context = canvas.getContext('2d');
 	context.translate(0, 600);
@@ -186,10 +205,9 @@ var load = function(x, y) {
 	renderer.render();
 
 	document.addEventListener('keydown', function(e) { new InputController(tank).handleKeyPress(e); });
-	//document.addEventListener('keydown', function(e) { renderer.render(); });
 
 	window.setInterval(function() {
-		physics.update();
+		physics.update(refreshRate*5);
 		renderer.render();
-	}, 30);
+	}, refreshRate);
 };
