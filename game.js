@@ -64,11 +64,12 @@ Bullet = (function() {
 })();
 
 Tank = (function() {
-	function Tank() {
+	function Tank(power) {
 		this.position = new Point(0, 0);
 		this.gunAngle = 0.1 * Math.PI;
 		this.barrelPointOfRotation = new Point(26, 19);
 		this.barrelLength = 25;
+		this.power = power;
 
 		this.bulletFired = function(bullet) { };
 	}
@@ -127,18 +128,52 @@ Tank = (function() {
 		return endOfBarrel.translate(this.position);
 	};
 	Tank.prototype.fireBullet = function() {
-		this.bulletFired(new Bullet(this.pointOfLaunch(), Vector.fromMagnitudeAnDirection(100, this.gunAngle)));
+		this.bulletFired(new Bullet(this.pointOfLaunch(), Vector.fromMagnitudeAnDirection(this.power.value, this.gunAngle)));
 	};
 
 	return Tank;
 })();
 
+Power = (function() {
+	function Power(value) {
+		this.value = value;
+	}
+	Power.prototype.draw = function(context) {
+		context.save();
+		context.strokeRect(13, 540, 12, 52);
+
+		context.fillStyle = "#751111";
+		context.fillRect(14, 541, 10, (this.value/200)*50);
+
+		context.save();
+		context.scale(1, -1);
+		context.translate(0, -600);
+		context.lineWidth = 1;
+		context.strokeText("Power", 5, 75);
+		context.restore();
+		context.restore();
+	};
+	Power.prototype.increasePower = function() {
+		if(this.value < 200)
+			this.value += 4;
+	};
+	Power.prototype.decreasePower = function() {
+		if(this.value > 0)
+			this.value -= 4;
+	};
+
+	return Power;
+})();
+
 InputController = (function() {
-	function InputController(tank) {
+	function InputController(tank, power) {
 		this.tank = tank;
+		this.power = power;
 		this.functionMapping = {
 			13:function() { tank.fireBullet(); },
+			37:function() { power.decreasePower(); },
 			38:function() { tank.angleGunUp(); },
+			39:function() { power.increasePower(); },
 			40:function() { tank.angleGunDown(); }
 		};
 	}
@@ -192,11 +227,12 @@ var load = function(x, y) {
 	context.translate(0, 600);
 	context.scale(1, -1);
 
-	var tank = new Tank();
+	var power = new Power(50);
+	var tank = new Tank(power);
 	tank.position = new Point(50, 1);
 
 	var physics = new Physics([]);
-	var renderer = new Renderer(context, [tank]);
+	var renderer = new Renderer(context, [tank, power]);
 	tank.bulletFired = function(bullet) {
 		physics.objects.push(bullet);
 		renderer.itemsToDraw.push(bullet);
@@ -204,7 +240,7 @@ var load = function(x, y) {
 
 	renderer.render();
 
-	document.addEventListener('keydown', function(e) { new InputController(tank).handleKeyPress(e); });
+	document.addEventListener('keydown', function(e) { new InputController(tank, power).handleKeyPress(e); });
 
 	window.setInterval(function() {
 		physics.update(refreshRate*5);
