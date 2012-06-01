@@ -257,13 +257,19 @@ Power = (function() {
 })();
 
 InputController = (function() {
-	function InputController(firstTank, firstPower) {
+	function InputController(firstTank, firstPower, secondTank, secondPower) {
 		this.functionMapping = {
-			13:function() { firstTank.fireBullet(); },
-			37:function() { firstPower.decreasePower(); },
-			38:function() { firstTank.angleGunUp(); },
-			39:function() { firstPower.increasePower(); },
-			40:function() { firstTank.angleGunDown(); }
+			13:function() { firstTank.fireBullet(); }, //Enter
+			37:function() { firstTank.angleGunUp(); }, //Left
+			38:function() { firstPower.increasePower(); }, //Up
+			39:function() { firstTank.angleGunDown(); }, //Right
+			40:function() { firstPower.decreasePower(); }, //Down
+
+			65:function() { secondTank.angleGunDown(); }, //A
+			68:function() { secondTank.angleGunUp(); }, //D
+			83:function() { secondPower.decreasePower(); }, //S
+			87:function() { secondPower.increasePower(); }, //W
+			32:function() { secondTank.fireBullet(); } //Space
 		};
 	}
 	InputController.prototype.handleKeyPress = function(e) {
@@ -326,10 +332,13 @@ var load = function(x, y) {
 
 	var physics = new Physics([]);
 	var renderer = new Renderer(context, [firstTank, firstTankPower, secondTank, secondTankPower]);
-	firstTank.bulletFired = function(bullet) {
-		physics.objects.push(bullet);
-		renderer.itemsToDraw.push(bullet);
-	};
+
+	[firstTank, secondTank].forEach(function(tank) {
+		tank.bulletFired = function(bullet) {
+				physics.objects.push(bullet);
+				renderer.itemsToDraw.push(bullet);
+			};
+	});
 
 	renderer.render();
 
