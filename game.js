@@ -6,6 +6,8 @@ Vector = (function() {
 		this.direction = this.getDirection();
 	}
 	Vector.prototype.add = function(vector) {
+		if(!vector)
+			return this;
 		return new Vector(this.x+vector.x, this.y+vector.y);
 	};
 	Vector.prototype.scale = function(scale) {
@@ -193,19 +195,13 @@ LeftGunAngleController = (function() {
 
 TankBuilder = (function() {
 	function TankBuilder() { }
-	TankBuilder.prototype.withRightBarrel = function() {
+	TankBuilder.prototype.rightSided = function() {
 		this.barrelRenderer = new RightBarrelRenderer();
-		return this;
-	};
-	TankBuilder.prototype.withLeftBarrel = function() {
-		this.barrelRenderer = new LeftBarrelRenderer();
-		return this;
-	};
-	TankBuilder.prototype.withRightGunAngleController = function() {
 		this.gunAngleController = new RightGunAngleController();
 		return this;
 	};
-	TankBuilder.prototype.withLeftGunAngleController = function() {
+	TankBuilder.prototype.leftSided = function() {
+		this.barrelRenderer = new LeftBarrelRenderer();
 		this.gunAngleController = new LeftGunAngleController();
 		return this;
 	};
@@ -257,19 +253,13 @@ Power = (function() {
 })();
 
 InputController = (function() {
-	function InputController(firstTank, firstPower, secondTank, secondPower) {
+	function InputController(firstTank, firstPower) {
 		this.functionMapping = {
 			13:function() { firstTank.fireBullet(); }, //Enter
 			37:function() { firstTank.angleGunUp(); }, //Left
 			38:function() { firstPower.increasePower(); }, //Up
 			39:function() { firstTank.angleGunDown(); }, //Right
-			40:function() { firstPower.decreasePower(); }, //Down
-
-			65:function() { secondTank.angleGunDown(); }, //A
-			68:function() { secondTank.angleGunUp(); }, //D
-			83:function() { secondPower.decreasePower(); }, //S
-			87:function() { secondPower.increasePower(); }, //W
-			32:function() { secondTank.fireBullet(); } //Space
+			40:function() { firstPower.decreasePower(); } //Down
 		};
 	}
 	InputController.prototype.handleKeyPress = function(e) {
@@ -302,13 +292,21 @@ Renderer = (function() {
 Physics = (function() {
 	function Physics(objects) {
 		this.objects = objects;
-		this.gravity = new Vector(0, -9.8);
+		this.applyGravity = function(object, timeElapsed) {
+			var acceleration = new Vector(0, -9.8);
+			object.velocity = object.velocity.add(acceleration.add(object.acceleration).scaleByConstant(timeElapsed/1000));
+		};
+		this.applyWindResistance = function(object, timeElapsed) {
+			var acceleration = object.velocity.scaleByConstant(-object.velocity.magnitude*0.0006);
+			object.velocity = object.velocity.add(acceleration.add(object.acceleration).scaleByConstant(timeElapsed/1000));
+		};
 	}
 	Physics.prototype.update = function(timeElapsed) {
 		var physics = this;
 		this.objects.forEach(function(object) {
-			object.velocity = object.velocity.add(physics.gravity.scaleByConstant(timeElapsed/1000));
-			object.move(timeElapsed/1000);
+			physics.applyGravity(object, timeElapsed);
+			physics.applyWindResistance(object, timeElapsed);
+			object.location = object.location.translate(object.velocity.scale(timeElapsed/1000));
 		});
 	};
 
@@ -322,27 +320,20 @@ var load = function(x, y) {
 	context.translate(0, 600);
 	context.scale(1, -1);
 
-	var firstTankPower = new Power(50, 20, 110, new Point(13, 540));
-	var firstTank = new TankBuilder().withPower(firstTankPower).withRightBarrel().withRightGunAngleController().build();
-	firstTank.position = new Point(50, 1);
-	
-	var secondTankPower = new Power(50, 20, 110, new Point(1175, 540));
-	var secondTank = new TankBuilder().withPower(secondTankPower).withLeftBarrel().withLeftGunAngleController().build();
-	secondTank.position = new Point(1120, 1);
+	var power = new Power(50, 20, 200, new Point(13, 540));
+	var tank = new TankBuilder().withPower(power).rightSided().build();
+	tank.position = new Point(50, 1);
 
 	var physics = new Physics([]);
-	var renderer = new Renderer(context, [firstTank, firstTankPower, secondTank, secondTankPower]);
+	var renderer = new Renderer(context, [tank, power]);
 
-	[firstTank, secondTank].forEach(function(tank) {
-		tank.bulletFired = function(bullet) {
-				physics.objects.push(bullet);
-				renderer.itemsToDraw.push(bullet);
-			};
-	});
-
+	tank.bulletFired = function(bullet) {
+		physics.objects.push(bullet);
+		renderer.itemsToDraw.push(bullet);
+	};
 	renderer.render();
 
-	document.addEventListener('keydown', function(e) { new InputController(firstTank, firstTankPower, secondTank, secondTankPower).handleKeyPress(e); });
+	document.addEventListener('keydown', function(e) { new InputController(tank, power).handleKeyPress(e); });
 
 	window.setInterval(function() {
 		physics.update(refreshRate*5);
